@@ -11,6 +11,7 @@ import pytest
 import torch
 
 # First Party
+from lmcache.logging import init_logger
 from lmcache.utils import CacheEngineKey, DiskCacheMetadata
 from lmcache.v1.config import LMCacheEngineConfig
 from lmcache.v1.config_base import _parse_local_disk
@@ -120,6 +121,17 @@ def local_disk_backend(temp_disk_path, async_loop, local_cpu_backend):
         dst_device="cuda:0",
     )
 
+
+@pytest.fixture
+def reinit_logger_for_capsys():
+    """Reinitialize the logger to ensure it captures logs for capsys."""
+    # Reinitialize the logger used in local_disk_backend module
+    from lmcache.v1.storage_backend import local_disk_backend as disk_backend_module
+
+    disk_backend_module.logger = init_logger(disk_backend_module.logger.name)
+    yield
+    # No cleanup needed as the logger will be reinitialized fresh for each test that
+    # uses this fixture
 
 class TestLocalDiskBackend:
     """Test cases for LocalDiskBackend."""
@@ -388,7 +400,7 @@ class TestPoolExhaustionHandling:
     pool is exhausted during disk I/O."""
 
     def test_load_bytes_from_disk_returns_none_on_pool_exhaustion(
-        self, local_disk_backend, capsys
+        self, local_disk_backend, capsys, reinit_logger_for_capsys
     ):
         """load_bytes_from_disk must return None (not crash) when allocate
         returns None, and emit a warning log."""
